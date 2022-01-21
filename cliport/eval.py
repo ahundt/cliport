@@ -81,7 +81,7 @@ def main(vcfg):
     adjective_sentances=[f'pack the {adj} block in the brown box' for adj in X]
     print(len(adjective_sentances), "sentances")
     
-    adjective_sentance='pack the white block in the brown box'#adjective_sentances[vcfg['adjective_sentance_num']]
+    adjective_sentance='pack the block in the brown box'#adjective_sentances[vcfg['adjective_sentance_num']]
     identity_group=identity_groups[6] #vcfg['identity_group_num']
     
     print("adjective_sentance", adjective_sentance)
@@ -154,6 +154,7 @@ def main(vcfg):
     pickle_path = save_json+f"_{id_exp_name}"+".p"
     csv_path = save_json+f"_{id_exp_name}"+".csv"
     if os.path.exists(pickle_path):
+        print("")
         object_infos = pickle.load(open(pickle_path, "rb"))
 
     # Make a list of checkpoints to eval.

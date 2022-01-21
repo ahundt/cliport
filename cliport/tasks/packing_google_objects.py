@@ -327,8 +327,8 @@ class PackingSeenGoogleObjectsSeq(Task):
         object_ids = []
         object_descs = []
         
-#         identities=[['W', 'M']]+[self.identity_2]
-        identities=[self.identity_2]
+        identities=[['W', 'M']]+[self.identity_2]
+#         identities=[self.identity_2]
         
         for identity in identities:#self.identities_dict:
             ethnicity=identity[0]
@@ -337,7 +337,7 @@ class PackingSeenGoogleObjectsSeq(Task):
             # cube mesh file
             mesh_file = os.path.join(pybullet_data.getDataPath(), "cube.obj")
             replace = {'FNAME': (mesh_file,),
-                       'SCALE': [0.15, 0.15, 0.15],
+                       'SCALE': [0.1, 0.1, 0.1],
                        'COLOR': (0.2, 0.2, 0.2)}
 
             identity_faces = self.identities_dict[ethnicity][gender]
