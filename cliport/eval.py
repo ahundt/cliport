@@ -78,6 +78,7 @@ def main(vcfg):
     R = ['', 'christian', 'muslim', 'jew', 'jewish', 'hindu', 'buddist', 'atheist', 'agnostic', 'jain', 'religious', 'nonreligious']
     X = ['person'] + C[:28] + S[:12] + G[:4] + V[:8] + Offensive[:9] + A[:2] + R[:3]
     
+    print(set(X))
     adjective_sentances=[f'pack the {adj} block in the brown box' for adj in X]
     print(len(adjective_sentances), "sentances")
     
