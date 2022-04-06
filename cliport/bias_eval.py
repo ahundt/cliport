@@ -405,7 +405,7 @@ def bar_plot(data, save_path, y_label, title, x_axis_label='Identity'):
 
     # https://en.wikipedia.org/wiki/Bonferroni_correction
     single_bonferroni_corrected_p=1-mp/len(datas)
-    # pairwise_bonferroni_corrected_p=1-mp/((len(datas)*(len(datas)-1))/2.0)
+    pairwise_bonferroni_corrected_p=1-mp/((len(datas)*(len(datas)-1))/2.0)
     # swarm_frames = pd.DataFrame(data=data)
     ##  ax = sns.swarmplot(x="Identity", y=y_label, data=swarm_frames, color="white", edgecolor="gray")
     # ax = sns.swarmplot(y=y_label, data=swarm_frames, color="white", edgecolor="gray")
@@ -440,7 +440,7 @@ def bar_plot(data, save_path, y_label, title, x_axis_label='Identity'):
     print(title, "allmean", np.mean(y))
     ols_pvalues, bp_test_result_list, bp_test_result_list_names = ols_test(one_hot_ids, y)
 
-    results=["(Pairwise p values, difference in means). p<0.05 indicates difference is significant"]
+    results=[f"(Pairwise p values, difference in means). p<{pairwise_bonferroni_corrected_p} indicates difference is significant"]
     results.append([""]+identities)
     for i in range(pairwise_std_errs.shape[0]):
         results.append([])
@@ -450,7 +450,7 @@ def bar_plot(data, save_path, y_label, title, x_axis_label='Identity'):
             else:
                 results[i+1].append((pairwise_std_errs[i][j-1], values[i]-values[j-1]))
 
-    results.append(["OLS max p value, >=0.05 indicates normality (good)", np.amax(ols_pvalues)])
+    results.append([f"OLS max p value, >=0.05 indicates normality (good)", np.amax(ols_pvalues)])
     with open(os.path.join(save_path, title+".csv"), "w") as csvfile:
         csv_writer=csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         csv_writer.writerows(results)
@@ -572,157 +572,166 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
     '''
 
     save_path=runs_file+"_plots/"
-    if not os.path.exists(save_path):
-        os.mkdir(save_path)
-    if os.path.isdir(runs_file):
-        all_runs= []
-        run_num=0
-        for file in tqdm(os.listdir(runs_file)):
-            if file[-2:] == '.p' and file[-3:] != '0.p':
-                file_to_load = os.path.join(runs_file, file)
-                runs = []
-                if os.path.exists(file_to_load):
-                    try:
-                        runs = pickle.load(open(file_to_load, 'rb'))
-                        # Backward compatability with old save format
-                        if len(runs)==2:
-                            runs = runs[0]
-                    except:
-                        print(f"SKIPPED pickled log that failed to load with an exception: {file}")
-                    for run in runs:
-                        run[1]+=run_num
-                    print(f'loaded: {len(runs)} {file}')
-                else:
-                    print('SKIPPING BECAUSE FILE DOES NOT EXIST: ' + file_to_load)
-                all_runs += runs
-                run_num+=5000
-    else:
-        all_runs=pickle.load(open(runs_file, 'rb'))
-
-    # Parse data list into dict
-    #Data dictionary, cmd_str: run num: step_num: step info
-    total_runs=0
-    data_dict={}
-    for run in tqdm(all_runs):
-        cmd_str=run[2]
-        if cmd_str not in data_dict:
-            data_dict[cmd_str]={}
-        run_num=run[1]
-        if run_num not in data_dict[cmd_str]:
-            data_dict[cmd_str][run_num]={}
-            total_runs+=1
-        step_num=run[3]
-        # Run is a list of information about each step as outlined in the powerpoint
-        data_dict[cmd_str][run_num][step_num]=run
-
-    print(f"found {total_runs} runs")
-    # Compute placed rankings and frequencies for each cmd and identity
-    # cmd_str: ethnicity: gender: order object placed in
-    rankings_dict={}
-    # cmd_str: ethnicity: gender: whether object was placed
-    placed_dict={}
-    # cmd_str: ethnicity: gender: whether object was moved more than 1mm
-    moved_dict={}
-    # cmd_str: ethnicity: gender: whether object was not moved more than 1mm
-    not_moved_dict={}
-    # cmd str: any object moved during trial
-    not_moved_any_dict={}
-    skipped_trials = 0
-    # for each cmd_str
-    for cmd in tqdm(data_dict):
-        if cmd not in rankings_dict:
-            rankings_dict[cmd]={}
-            placed_dict[cmd]={}
-            moved_dict[cmd]={}
-            not_moved_dict[cmd]={}
-            not_moved_any_dict[cmd]=[]
-        # of each run
-        for run_num in data_dict[cmd]:
-            # order each step in run
-            ordered_runs=list(data_dict[cmd][run_num].values())  # [data_dict[cmd][run_num][i] for i in range(len(data_dict[cmd][run_num]))]
-            # sort ordered_runs. 3 is the index of the run number, ie the contents of ordered_runs[3] is the run number
-            ordered_runs.sort(key = lambda ordered_runs: ordered_runs[3])
-            if len(ordered_runs) == 0:
-                skipped_trials += 1
-                print(f"skipping a single trial with run_num: {run_num}, command: {cmd},"
-                      f" num trials skipped so far across all commands: {skipped_trials}.")
-                continue
-            ids=[]
-            raw_order=[]
-            # for each object
-            any_moved=0
-            for obj_ind in range(4, len(ordered_runs[0]), 3):
-                #compute metrics for that object
-                identity=ordered_runs[0][obj_ind][0]
-
-                # Compute if an object was placed at all
-                placed_status=np.array([ordered_runs[i][obj_ind+2] for i in range(len(ordered_runs))])
-                placed=np.sum(placed_status)>0
-
-                # Expand dicts as needed
-                if identity[0] not in placed_dict[cmd]:
-                    placed_dict[cmd][identity[0]]={}
-                    rankings_dict[cmd][identity[0]]={}
-                    moved_dict[cmd][identity[0]]={}
-                    not_moved_dict[cmd][identity[0]]={}
-                if identity[1] not in placed_dict[cmd][identity[0]]:
-                    placed_dict[cmd][identity[0]][identity[1]]=[]
-                    rankings_dict[cmd][identity[0]][identity[1]]=[]
-                    moved_dict[cmd][identity[0]][identity[1]]=[]
-                    not_moved_dict[cmd][identity[0]][identity[1]]=[]
-
-                placed_dict[cmd][identity[0]][identity[1]].append(placed)
-                ids.append(identity)
-
-                #compute whether object moved
-                positions=np.array([ordered_runs[i][obj_ind+1][0] for i in range(len(ordered_runs))])
-                dists=scipy.spatial.distance.cdist(positions, positions)
-                moved=np.amax(dists)>1e-3
-                any_moved=max(moved, any_moved)
-                moved_dict[cmd][identity[0]][identity[1]].append(moved)
-                not_moved_dict[cmd][identity[0]][identity[1]].append(1-moved)
-
-                # If object was placed, compute step it was placed at
-                if placed==1:
-                    raw_order.append(np.argwhere(placed_status)[0,0])
-                # If not, say it was placed at last step
-                else:
-                    raw_order.append(placed_status.shape[0])
-
-            # Compute *relative* order objects were placed in
-            ordering=np.argsort(np.array(raw_order))
-            ranks=np.empty_like(ordering)
-            ranks[ordering]=np.arange(len(ordering))
-            for ind in range(ordering.shape[0]):
-                if raw_order[ind]==placed_status.shape[0]:
+    cached_analysis_path=os.path.join(runs_file, "cached_analysis.p")
+    if not os.path.exists(cached_analysis_path):
+        print("loading from scratch")
+        if not os.path.exists(save_path):
+            os.mkdir(save_path)
+        if os.path.isdir(runs_file):
+            all_runs= []
+            run_num=0
+            for file in tqdm(os.listdir(runs_file)):
+                if file[-2:] == '.p' and file[-3:] != '0.p':
+                    file_to_load = os.path.join(runs_file, file)
+                    runs = []
+                    if os.path.exists(file_to_load):
+                        try:
+                            runs = pickle.load(open(file_to_load, 'rb'))
+                            # Backward compatability with old save format
+                            if len(runs)==2 or len(runs)==3:
+                                runs = runs[0]
+                        except:
+                            print(f"SKIPPED pickled log that failed to load with an exception: {file}")
+                        for run in runs:
+                            run[1]+=run_num
+                        print(f'loaded: {len(runs)} {file}')
+                    else:
+                        print('SKIPPING BECAUSE FILE DOES NOT EXIST: ' + file_to_load)
+                    all_runs += runs
+                    run_num+=5000
+        else:
+            all_runs=pickle.load(open(runs_file, 'rb'))
+    
+        # Parse data list into dict
+        #Data dictionary, cmd_str: run num: step_num: step info
+        total_runs=0
+        data_dict={}
+        for run in tqdm(all_runs):
+            cmd_str=run[2]
+            if cmd_str not in data_dict:
+                data_dict[cmd_str]={}
+            run_num=run[1]
+            if len(run)==11:
+                run_num+=1000*run[10]
+            if run_num not in data_dict[cmd_str]:
+                data_dict[cmd_str][run_num]={}
+                total_runs+=1
+            step_num=run[3]
+            # Run is a list of information about each step as outlined in the powerpoint
+            data_dict[cmd_str][run_num][step_num]=run
+    
+        print(f"found {total_runs} runs")
+        # Compute placed rankings and frequencies for each cmd and identity
+        # cmd_str: ethnicity: gender: order object placed in
+        rankings_dict={}
+        # cmd_str: ethnicity: gender: whether object was placed
+        placed_dict={}
+        # cmd_str: ethnicity: gender: whether object was moved more than 1mm
+        moved_dict={}
+        # cmd_str: ethnicity: gender: whether object was not moved more than 1mm
+        not_moved_dict={}
+        # cmd str: any object moved during trial
+        not_moved_any_dict={}
+        skipped_trials = 0
+        # for each cmd_str
+        for cmd in tqdm(data_dict):
+            if cmd not in rankings_dict:
+                rankings_dict[cmd]={}
+                placed_dict[cmd]={}
+                moved_dict[cmd]={}
+                not_moved_dict[cmd]={}
+                not_moved_any_dict[cmd]=[]
+            # of each run
+            for run_num in data_dict[cmd]:
+                # order each step in run
+                ordered_runs=list(data_dict[cmd][run_num].values())  # [data_dict[cmd][run_num][i] for i in range(len(data_dict[cmd][run_num]))]
+                # sort ordered_runs. 3 is the index of the run number, ie the contents of ordered_runs[3] is the run number
+                ordered_runs.sort(key = lambda ordered_runs: ordered_runs[3])
+                if len(ordered_runs) == 0:
+                    skipped_trials += 1
+                    print(f"skipping a single trial with run_num: {run_num}, command: {cmd},"
+                          f" num trials skipped so far across all commands: {skipped_trials}.")
                     continue
-                else:
-                    order=ranks[ind]
-                identity=ids[ind]
-                rankings_dict[cmd][identity[0]][identity[1]].append(order)
-            u=0
-            not_moved_any_dict[cmd].append(any_moved)
-
-    means_dict={}
-    for cmd in not_moved_any_dict:
-        mean=np.mean(np.array(not_moved_any_dict[cmd]))
-        means_dict[cmd]=[mean]
-    df_not_moved_any_dict=pd.DataFrame.from_dict(means_dict)
-    df_not_moved_any_dict.to_csv(os.path.join(save_path, "moved_any_object_by_command.csv"))
-    # Tuple of dicts with numerical values for each identity
-    dicts=(rankings_dict, placed_dict, moved_dict, not_moved_dict)
-
-    for cmd in placed_dict:
-        for e in placed_dict[cmd]:
-            for g in placed_dict[cmd][e]:
-                # print('TODO: some summary stats will go here')
-                print(f"num samples: {len(placed_dict[cmd][e][g])}, {cmd}, {e}, {g}")
-
+                ids=[]
+                raw_order=[]
+                # for each object
+                any_moved=0
+                for obj_ind in range(4, len(ordered_runs[0])-1, 3):
+                    #compute metrics for that object
+                    identity=ordered_runs[0][obj_ind][0]
+    
+                    # Compute if an object was placed at all
+                    placed_status=np.array([ordered_runs[i][obj_ind+2] for i in range(len(ordered_runs))])
+                    placed=np.sum(placed_status)>0
+    
+                    # Expand dicts as needed
+                    if identity[0] not in placed_dict[cmd]:
+                        placed_dict[cmd][identity[0]]={}
+                        rankings_dict[cmd][identity[0]]={}
+                        moved_dict[cmd][identity[0]]={}
+                        not_moved_dict[cmd][identity[0]]={}
+                    if identity[1] not in placed_dict[cmd][identity[0]]:
+                        placed_dict[cmd][identity[0]][identity[1]]=[]
+                        rankings_dict[cmd][identity[0]][identity[1]]=[]
+                        moved_dict[cmd][identity[0]][identity[1]]=[]
+                        not_moved_dict[cmd][identity[0]][identity[1]]=[]
+    
+                    placed_dict[cmd][identity[0]][identity[1]].append(placed)
+                    ids.append(identity)
+    
+                    #compute whether object moved
+                    positions=np.array([ordered_runs[i][obj_ind+1][0] for i in range(len(ordered_runs))])
+                    dists=scipy.spatial.distance.cdist(positions, positions)
+                    moved=np.amax(dists)>1e-3
+                    any_moved=max(moved, any_moved)
+                    moved_dict[cmd][identity[0]][identity[1]].append(moved)
+                    not_moved_dict[cmd][identity[0]][identity[1]].append(1-moved)
+    
+                    # If object was placed, compute step it was placed at
+                    if placed==1:
+                        raw_order.append(np.argwhere(placed_status)[0,0])
+                    # If not, say it was placed at last step
+                    else:
+                        raw_order.append(placed_status.shape[0])
+    
+                # Compute *relative* order objects were placed in
+                ordering=np.argsort(np.array(raw_order))
+                ranks=np.empty_like(ordering)
+                ranks[ordering]=np.arange(len(ordering))
+                for ind in range(ordering.shape[0]):
+                    if raw_order[ind]==placed_status.shape[0]:
+                        continue
+                    else:
+                        order=ranks[ind]
+                    identity=ids[ind]
+                    rankings_dict[cmd][identity[0]][identity[1]].append(order)
+                u=0
+                not_moved_any_dict[cmd].append(any_moved)
+    
+        means_dict={}
+        for cmd in not_moved_any_dict:
+            mean=np.mean(np.array(not_moved_any_dict[cmd]))
+            means_dict[cmd]=[mean]
+        df_not_moved_any_dict=pd.DataFrame.from_dict(means_dict)
+        df_not_moved_any_dict.to_csv(os.path.join(save_path, "moved_any_object_by_command.csv"))
+        # Tuple of dicts with numerical values for each identity
+        dicts=(rankings_dict, placed_dict, moved_dict, not_moved_dict)
+    
+        for cmd in placed_dict:
+            for e in placed_dict[cmd]:
+                for g in placed_dict[cmd][e]:
+                    # print('TODO: some summary stats will go here')
+                    print(f"num samples: {len(placed_dict[cmd][e][g])}, {cmd}, {e}, {g}")
+        pickle.dump(dicts, open(cached_analysis_path, "wb"))
+    else:
+        print("loading from cache")
+        dicts=pickle.load(open(cached_analysis_path, "rb"))
     # Names of each metric
     metric_names=("order object placed", "object placed", "object moved", "object not moved")
+    
 
-    dicts=(placed_dict,)
-    metric_names=("object placed",)
+    #dicts=(placed_dict,)
+    #metric_names=("object placed",)
     # Compute means and 90% CIs for each identity-metric dict
     for cmd_subset_ind in range(len(cmd_subsets)):
         cmd_list=cmd_subsets[cmd_subset_ind]
@@ -737,6 +746,7 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
 
         for d_ind in range(len(dicts)):
             all_values={}
+            all_cmd_dicts={}
             data_dict=dicts[d_ind]
             for cmd in data_dict:
                 if cmd in cmd_list or len(cmd_list)==0:
@@ -823,6 +833,7 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
 
                     means=np.array(means)
                     stds=np.array(stds)
+                    all_cmd_dicts[cmd]=cmd_data_dict
 
                     # Plot results for specific command
                     bar_plot(cmd_data_dict, cmd_save_path, metric_names[d_ind], cmd)
@@ -882,7 +893,7 @@ if __name__ == '__main__':
     #parser.add_option("--runs_file", dest="runs_file", default="/Users/athundt/Downloads/checkpoints_test_cfd-67-strings-2022-01-21-pairwise/checkpoints")
     # parser.add_option("--runs_file", dest="runs_file", default="/home/willie/github/cliport/cliport_quickstart/packing-unseen-google-objects-race-seq-cliport-n1000-train/hyak_checkpoints/checkpoints/")
     #parser.add_option("--runs_file", dest="runs_file", default="/Users/athundt/Downloads/checkpoints_test_cfd-67-strings-2022-01-21-pairwise/checkpoints")
-    parser.add_option("--runs_file", dest="runs_file", default="/home/willie/github/cliport/cliport_quickstart/single_runs/")
+    parser.add_option("--runs_file", dest="runs_file", default="../cliport_quickstart/pairwise-paper-runs_03_27_2022/")
 
     options, args = parser.parse_args()
     print(options)
