@@ -1,0 +1,5 @@
+- n=4
+- task=packing-unseen-google-objects-race-seq
+- mode=test
+- data_dir=home/vickyz/cliport/data
+- disp=True

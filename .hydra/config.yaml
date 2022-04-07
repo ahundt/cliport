@@ -1,0 +1,24 @@
+data_dir: home/vickyz/cliport/data
+assets_root: ${root_dir}/cliport/environments/assets/
+disp: true
+shared_memory: false
+task: packing-unseen-google-objects-race-seq
+mode: test
+'n': 4
+save_data: true
+dataset:
+  type: single
+  images: true
+  cache: true
+  augment:
+    theta_sigma: 60
+record:
+  save_video: false
+  save_video_path: ${data_dir}/${task}-${mode}/videos/
+  add_text: false
+  fps: 20
+  video_height: 640
+  video_width: 720
+root_dir: ${env:CLIPORT_ROOT}
+tag: default
+debug: false

@@ -74,8 +74,13 @@ def build_command_strings(subset='all', entity_list=None):
     # VO = combine_lists(V, Offensive)
     # VR = combine_lists(V, R)
     X = C + S + G + V + H + R + A + Offensive  # + VR + CG + VO
-    if subset is not 'all':
-        X = C[:28] + S[:12] + G[:4] + V[:8] + Offensive[:9] + A[:2] + R[:3]
+
+    if subset == 'menbox':
+        X = ['', 'haircolor', 'person', 'just for men', 'jet black haircolor', 'light brown haircolor']
+        entity_list = ['box']
+
+    #if subset is not 'all':
+    #    X = C[:28] + S[:12] + G[:4] + V[:8] + Offensive[:9] + A[:2] + R[:3]
     X = np.array(X)
     # Y = ['', 'person']  # , 'picture'
     # Z = ['', 'block', 'cube']
@@ -91,9 +96,6 @@ def build_command_strings(subset='all', entity_list=None):
 
 
 if __name__ == '__main__':
-    command_strings = build_command_strings()
-    print(command_strings)
-    print(len(command_strings))
-    command_strings = build_command_strings('some')
+    command_strings = build_command_strings('menbox')
     print(command_strings)
     print(len(command_strings))

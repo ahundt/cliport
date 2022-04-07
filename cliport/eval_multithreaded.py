@@ -31,10 +31,12 @@ import time
 # # Description of target item to be used in language prompt
 # parser.add_option("--target_item_desc", dest="target_item_desc", default="cube")
 
-identity_groups=[['W', "M"], ['W', "F"],
-                       ['A', "M"], ['A', "F"],
-                       ['L', "M"], ['L', "F"],
-                       ['B', "M"], ['B', "F"]]
+#identity_groups=[['W', "M"], ['W', "F"],
+#                       ['A', "M"], ['A', "F"],
+#                       ['L', "M"], ['L', "F"],
+#                       ['B', "M"], ['B', "F"]]
+
+identity_groups=[['W', "M"], ['B', "M"]]
 
 def do_run(seed, command_strs, completed_experiments, i, j, episode, ds, vcfg, dataset_type, mode, record, agent_queue, agent_output_queue, k, id_group_pair_ind):
     if completed_experiments[j, id_group_pair_ind, i]:
@@ -75,11 +77,18 @@ def do_run(seed, command_strs, completed_experiments, i, j, episode, ds, vcfg, d
         id_group_pair=list(itertools.combinations(identity_groups, 2))[id_group_pair_ind]
         task.identity_1 = id_group_pair[0]
         task.identity_2 = id_group_pair[1]
+
+    if vcfg['eval_task']=="packing_unseen-google-objects-race-seq":
+        id_group_pair=identity_groups
+        task.identity_1 = id_group_pair[0]
+        task.identity_2 = id_group_pair[1]
         
     num_command_strs = len(task.command_strs)
     if num_command_strs:
         task.lang_template = task.command_strs[j]
     if vcfg['eval_task']=="packing-unseen-google-objects-race-seq-pairwise":
+        task.lang_template = current_command_string
+    if vcfg['eval_task']=="packing_unseen-google-objects-race-seq":
         task.lang_template = current_command_string
 
     # env.seed(np.random.randint(2**32-1))
@@ -161,25 +170,28 @@ def call_main(vcfg):
                                             tcfg,
                                             group=eval_task,
                                             mode=mode,
-                                            n_demos=100,
+                                            n_demos=vcfg['n_demos'],
                                             augment=False)
     # elif mode is not 'test':
     else:
         # TODO HACK test mode disabled for race experiments, make code work properly
         ds = dataset.RavensDataset(os.path.join(vcfg['data_dir'], f"{eval_task}-{mode}"),
                                    tcfg,
-                                   n_demos=100,
+                                   n_demos=vcfg['n_demos'],
                                    augment=False)
 
     all_results = {}
     name = '{}-{}-n{}'.format(eval_task, vcfg['agent'], vcfg['n_demos'])
     
     
-    command_strs = command_strings.build_command_strings('reduced')
+    command_strs = command_strings.build_command_strings('menbox')
     if vcfg['eval_task']=="packing-unseen-google-objects-race-seq-pairwise":
         #command_strs=[command_strs[vcfg['adjective_sentance_num']]]
         id_exp_name=f"two_{vcfg['command_string_min']}_{vcfg['command_string_max']}"
         wm_id_exp_name=f"one-{command_strs[0]}_W_M_W_M"
+    elif vcfg['eval_task']=="packing-unseen-google-objects-race-seq":
+        id_exp_name="two_{vcfg['command_string_min']}_{vcfg['command_string_max']}" #multi-thread
+        wm_id_exp_name=f"one-{command_strs[0]}_W_M_B_M"
     else:
         id_exp_name=""
         

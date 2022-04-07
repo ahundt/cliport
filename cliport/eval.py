@@ -1,6 +1,9 @@
 """Ravens main training script."""
 
 import os
+import torch
+torch.cuda.empty_cache()
+torch.cuda.is_available()
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import pickle
 import json
@@ -25,10 +28,12 @@ from tqdm import tqdm, trange
 # # Description of target item to be used in language prompt
 # parser.add_option("--target_item_desc", dest="target_item_desc", default="cube")
 
-identity_groups=[['W', "M"], ['W', "F"],
-                       ['A', "M"], ['A', "F"],
-                       ['L', "M"], ['L', "F"],
-                       ['B', "M"], ['B', "F"]]
+#identity_groups=[['W', "M"], ['W', "F"],
+#                       ['A', "M"], ['A', "F"],
+#                       ['L', "M"], ['L', "F"],
+#                       ['B', "M"], ['B', "F"]]
+
+identity_groups=[['W', "M"], ['B', "M"]]
 
 def call_main(vcfg):
     # Load train cfg
@@ -59,25 +64,28 @@ def call_main(vcfg):
                                             tcfg,
                                             group=eval_task,
                                             mode=mode,
-                                            n_demos=100,
+                                            n_demos=vcfg['n_demos'],
                                             augment=False)
     # elif mode is not 'test':
     else:
         # TODO HACK test mode disabled for race experiments, make code work properly
         ds = dataset.RavensDataset(os.path.join(vcfg['data_dir'], f"{eval_task}-{mode}"),
                                    tcfg,
-                                   n_demos=100,
+                                   n_demos=vcfg['n_demos'],
                                    augment=False)
 
     all_results = {}
     name = '{}-{}-n{}'.format(eval_task, vcfg['agent'], vcfg['n_demos'])
     
     
-    command_strs = command_strings.build_command_strings('reduced')
+    command_strs = command_strings.build_command_strings('menbox')
     if vcfg['eval_task']=="packing-unseen-google-objects-race-seq-pairwise":
         command_strs=[command_strs[vcfg['adjective_sentance_num']]]
         id_exp_name=f"one-{command_strs[0]}_{identity_groups[vcfg['identity_group_num_0']][0]}_{identity_groups[vcfg['identity_group_num_0']][1]}_{identity_groups[vcfg['identity_group_num_1']][0]}_{identity_groups[vcfg['identity_group_num_1']][1]}"
         wm_id_exp_name=f"one-{command_strs[0]}_W_M_W_M"
+    elif vcfg['eval_task']=="packing-unseen-google-objects-race-seq":
+        id_exp_name=f"one-{command_strs[0]}_{identity_groups[vcfg['identity_group_num_0']][0]}_{identity_groups[vcfg['identity_group_num_0']][1]}_{identity_groups[vcfg['identity_group_num_1']][0]}_{identity_groups[vcfg['identity_group_num_1']][1]}"
+        wm_id_exp_name=f"one-{command_strs[0]}_W_M_B_M"
     else:
         id_exp_name=""
         
@@ -201,13 +209,18 @@ def call_main(vcfg):
                         if vcfg['eval_task']=="packing-unseen-google-objects-race-seq-pairwise":
                             task.identity_1 = identity_groups[vcfg['identity_group_num_0']]
                             task.identity_2 = identity_groups[vcfg['identity_group_num_1']]
+
+                        if vcfg['eval_task']=="packing-unseen-google-objects-race-seq":
+                            task.identity_1 = identity_groups[vcfg['identity_group_num_0']]
+                            task.identity_2 = identity_groups[vcfg['identity_group_num_1']]
                             
                         num_command_strs = len(task.command_strs)
                         if num_command_strs:
                             task.lang_template = task.command_strs[j]
                         if vcfg['eval_task']=="packing-unseen-google-objects-race-seq-pairwise":
                             task.lang_template = current_command_string
-    
+                        if vcfg['eval_task']=="packing-unseen-google-objects-race-seq":
+                            task.lang_template = current_command_string    
                         # env.seed(np.random.randint(2**32-1))
                         env.seed(seed)
                         env.set_task(task)

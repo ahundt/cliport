@@ -5,6 +5,7 @@ import os
 import random
 import string
 import tempfile
+import sys
 
 import cv2
 import numpy as np
@@ -16,7 +17,7 @@ from cliport.utils import utils
 import pybullet as p
 import pybullet_data
 
-
+np.set_printoptions(threshold=sys.maxsize)
 class Task():
     """Base Task class."""
 
@@ -110,7 +111,6 @@ class Task():
 
             # Filter out matched objects.
             order = [i for i in order if nn_dists[i] > 0]
-
             pick_mask = None
             for pick_i in order:
                 pick_mask = np.uint8(obj_mask == objs[pick_i][0])
@@ -120,7 +120,6 @@ class Task():
 
                 if np.sum(pick_mask) > 0:
                     break
-
             # Trigger task reset if no object is visible.
             if pick_mask is None or np.sum(pick_mask) == 0:
                 self.goals = []
