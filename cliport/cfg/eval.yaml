@@ -9,12 +9,12 @@ hydra:
 
 mode: test # 'val' or 'test'
 
-num_processes: 8 # number of parallel sims to run (on one gpu)
-adjective_sentance_num: 137 #137: person 52: criminal person
+num_processes: 2 # number of parallel sims to run (on one gpu)
+adjective_sentance_num: 58 #137: person 52: criminal person
 identity_group_num_0: 0
-identity_group_num_1: 1
-command_string_min: 0
-command_string_max: 10
+identity_group_num_1: 6
+command_string_min: 58
+command_string_max: 59
 
 # eval settings
 agent: cliport
@@ -31,7 +31,7 @@ target_item_desc: 'block'
 folds: 0 # to run multi-process, split up the command strings into this many folds, 0 means run all cases, 4 means four separate fold runs
 fold: 0 # to run multi-process, this run should cover this fold, if there are 4 fold runs the fold values for each process will be 0, 1, 2, 3.
 
-disp: False
+disp: True
 shared_memory: False
 eval_task: packing-unseen-google-objects-race-seq-pairwise # task to evaluate the model on
 model_task: multi-language-conditioned # task the model was trained on (e.g. multi-language-conditioned or packing-boxes-pairs-seen-colors)

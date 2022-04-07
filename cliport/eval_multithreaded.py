@@ -31,10 +31,12 @@ import time
 # # Description of target item to be used in language prompt
 # parser.add_option("--target_item_desc", dest="target_item_desc", default="cube")
 
-identity_groups=[['W', "M"], ['W', "F"],
-                       ['A', "M"], ['A', "F"],
-                       ['L', "M"], ['L', "F"],
-                       ['B', "M"], ['B', "F"]]
+# identity_groups=[['W', "M"], ['W', "F"],
+#                        ['A', "M"], ['A', "F"],
+#                        ['L', "M"], ['L', "F"],
+#                        ['B', "M"], ['B', "F"]]
+
+identity_groups=[['W', "M"], ['B', "M"]]
 
 def do_run(seed, command_strs, completed_experiments, i, j, episode, ds, vcfg, dataset_type, mode, record, agent_queue, agent_output_queue, k, id_group_pair_ind):
     if completed_experiments[j, id_group_pair_ind, i]:
@@ -122,6 +124,8 @@ def do_run(seed, command_strs, completed_experiments, i, j, episode, ds, vcfg, d
                 object_info.append(task.object_log_info[obj_id])
                 object_info.append(info['pose'][obj_id])
                 object_info.append(info['placed'][obj_id])
+                if info['placed'][obj_id]:
+                    print("------------PLACED----------------------------------------------------------------------------------------")
             object_infos.append(object_info)
         else:
             #print("pose not in info", info, flush=True)
@@ -132,7 +136,7 @@ def do_run(seed, command_strs, completed_experiments, i, j, episode, ds, vcfg, d
         object_info.append(id_group_pair_ind)
         total_reward += reward
         cmd_reward+=(reward>0)
-#         print(f'Total Reward: {total_reward:.3f} | Done: {done}\n', flush=True)
+        #print(f'Total Reward: {total_reward:.3f} | Done: {done}\n', flush=True)
         #print("d")
         if done:
             break
@@ -273,6 +277,7 @@ def call_main(vcfg):
                     episode, seed = ds.load(0)
                     seed = k
                     agent_output_queues[k]=m.Queue()
+                    print("k", k)
                     run=pool.apply_async(do_run, args=(seed, command_strs, completed_experiments, i, j, episode, ds, vcfg, dataset_type, mode, record, agent_queue, agent_output_queues[k], k, id_group_pair_ind))
                     all_parallel_runs.append(run)
 
@@ -280,6 +285,7 @@ def call_main(vcfg):
             all_done=False
             total_num_runs=len(all_parallel_runs)
             s_time=time.time()
+            all_reward=0
             while not all_done:  
                 all_done=True
                 new_parallel_runs=[]
@@ -289,6 +295,7 @@ def call_main(vcfg):
                         res=p.get()
                         if res!=None:
                             run_object_infos, run_cmd_reward, total_reward, info, j, id_group_pair_ind, i=res
+                            all_reward+=total_reward
                             object_infos+=run_object_infos
                             #cumulative_rewards[j][id_group_pair_ind]+=run_cmd_reward
                             results.append((total_reward, info))
@@ -308,10 +315,11 @@ def call_main(vcfg):
                         act_inputs=agent_queue.get(timeout=0.02)
                         act = agent.act(act_inputs['obs'], act_inputs['info'], act_inputs['goal'])
                         k=act_inputs['k']
+                        print("k", k)
                         agent_output_queues[k].put(act)
                         c_time=time.time()
                         avg_per_it=(c_time-s_time)/max(total_num_runs-len(all_parallel_runs), 1)
-                        print(f"{id_group_pair_ind} 10000j{len(all_parallel_runs)} of {total_num_runs} {avg_per_it} s/it", flush=True)
+                        print(f"{id_group_pair_ind} {len(all_parallel_runs)} of {total_num_runs} {avg_per_it} s/it all_reward {all_reward}", flush=True)
                         num_sent+=1
                     except Empty:
                         break

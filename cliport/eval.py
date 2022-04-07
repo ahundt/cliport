@@ -1,7 +1,7 @@
 """Ravens main training script."""
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]=""
 import pickle
 import json
 import logging
@@ -18,6 +18,7 @@ from cliport.environments.environment import Environment
 from optparse import OptionParser
 import pandas as pd
 from tqdm import tqdm, trange
+import torch
 
 # parser = OptionParser()
 # # Random seed
@@ -208,6 +209,7 @@ def call_main(vcfg):
                         if vcfg['eval_task']=="packing-unseen-google-objects-race-seq-pairwise":
                             task.lang_template = current_command_string
     
+                        agent=agent.float()
                         # env.seed(np.random.randint(2**32-1))
                         env.seed(seed)
                         env.set_task(task)
@@ -224,7 +226,8 @@ def call_main(vcfg):
                             env.start_rec(video_name)
     
                         for step in range(task.max_steps):
-                            act = agent.act(obs, info, goal)
+                            with torch.no_grad():
+                                act = agent.act(obs, info, goal)
                             lang_goal = info['lang_goal']
                             print(f'Lang Goal: {lang_goal}', flush=True)
                             obs, reward, done, info = env.step(act)

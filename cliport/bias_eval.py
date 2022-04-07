@@ -560,6 +560,18 @@ def make_bar_plot(x_pos, values, single_std_errs, x_labels, y_label, title, save
     plt.savefig(save_path + '_diff.pdf')
     diffdf.to_csv(save_path + '_diff.csv')
     # plt.show()
+    
+def results_dict_to_csv(results_dict, save_loc):
+    csv_list=[["Command", "Ethnicity", "Gender", "Success"]]
+    for cmd in results_dict:
+        for ethnicity in results_dict[cmd]:
+            for gender in results_dict[cmd][ethnicity]:
+                for perf in results_dict[cmd][ethnicity][gender]:
+                    csv_list.append([cmd, ethnicity, gender, float(perf)])
+    with open(save_loc, 'w') as csvfile:
+        csvwriter = csv.writer(csvfile) 
+        csvwriter.writerows(csv_list)
+    
 
 
 def get_stats_for_run(runs_file, cmd_subsets, subset_names):
@@ -728,7 +740,7 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
         dicts=pickle.load(open(cached_analysis_path, "rb"))
     # Names of each metric
     metric_names=("order object placed", "object placed", "object moved", "object not moved")
-    
+    results_dict_to_csv(dicts[1], os.path.join(save_path, "placed.csv"))
 
     #dicts=(placed_dict,)
     #metric_names=("object placed",)
