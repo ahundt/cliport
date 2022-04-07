@@ -544,15 +544,18 @@ def make_bar_plot(x_pos, values, single_std_errs, x_labels, y_label, title, save
                     l2 = x_label1
                     l1 = x_label2
                 diffname = l1 + ' - ' + l2
-                # TODO(ahundt) WARNING: THESE ARE PLACEHOLDER SIGNIFICANCE VALUES, NEED REAL CORRECTED TRUE/FALSE VERSION AND STD ERR
-                significant = diff > ((ordered_std_err_1d[i] + ordered_std_err_1d[j])/2.0)
-                negdiff = -np.abs(diff)
-                diffnames += [diffname]
-                diffs += [negdiff]
-                significants += [significant]
+                if diffname not in diffnames:
+                    # TODO(ahundt) WARNING: THESE ARE PLACEHOLDER SIGNIFICANCE VALUES, NEED REAL CORRECTED TRUE/FALSE VERSION AND STD ERR
+                    significant = diff > ((ordered_std_err_1d[i] + ordered_std_err_1d[j])/2.0)
+                    negdiff = -np.abs(diff)
+                    diffnames += [diffname]
+                    diffs += [negdiff]
+                    significants += [significant]
     y_difflabel = viz_y_label + ' difference'
     x_difflabel = x_axis_label + ' difference'
-    diffdf = pd.DataFrame({x_axis_label: diffnames, y_difflabel: diffs, 'plot_test_todo_Significant': significants}).sort_values(y_difflabel)
+    diffdf = pd.DataFrame({x_axis_label: diffnames, y_difflabel: diffs}).sort_values(y_difflabel)
+    # TODO(ahundt) once correctly calculated significant values exist: (1) uncomment and update diffdf and plot line below and (2) separately plot or remove lines that don't use significant value
+    # diffdf = pd.DataFrame({x_axis_label: diffnames, y_difflabel: diffs, 'plot_test_todo_Significant': significants}).sort_values(y_difflabel)
     ax = sns.catplot(data=diffdf, kind="bar", x=x_axis_label, y=y_difflabel)
     # ax = sns.catplot(data=diffdf, kind="bar", x=x_axis_label, y=y_difflabel, hue="Significant")
     plt.xticks(rotation=90)
@@ -601,7 +604,7 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
                     run_num+=5000
         else:
             all_runs=pickle.load(open(runs_file, 'rb'))
-    
+
         # Parse data list into dict
         #Data dictionary, cmd_str: run num: step_num: step info
         total_runs=0
@@ -619,7 +622,7 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
             step_num=run[3]
             # Run is a list of information about each step as outlined in the powerpoint
             data_dict[cmd_str][run_num][step_num]=run
-    
+
         print(f"found {total_runs} runs")
         # Compute placed rankings and frequencies for each cmd and identity
         # cmd_str: ethnicity: gender: order object placed in
@@ -659,11 +662,11 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
                 for obj_ind in range(4, len(ordered_runs[0])-1, 3):
                     #compute metrics for that object
                     identity=ordered_runs[0][obj_ind][0]
-    
+
                     # Compute if an object was placed at all
                     placed_status=np.array([ordered_runs[i][obj_ind+2] for i in range(len(ordered_runs))])
                     placed=np.sum(placed_status)>0
-    
+
                     # Expand dicts as needed
                     if identity[0] not in placed_dict[cmd]:
                         placed_dict[cmd][identity[0]]={}
@@ -675,10 +678,10 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
                         rankings_dict[cmd][identity[0]][identity[1]]=[]
                         moved_dict[cmd][identity[0]][identity[1]]=[]
                         not_moved_dict[cmd][identity[0]][identity[1]]=[]
-    
+
                     placed_dict[cmd][identity[0]][identity[1]].append(placed)
                     ids.append(identity)
-    
+
                     #compute whether object moved
                     positions=np.array([ordered_runs[i][obj_ind+1][0] for i in range(len(ordered_runs))])
                     dists=scipy.spatial.distance.cdist(positions, positions)
@@ -686,14 +689,14 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
                     any_moved=max(moved, any_moved)
                     moved_dict[cmd][identity[0]][identity[1]].append(moved)
                     not_moved_dict[cmd][identity[0]][identity[1]].append(1-moved)
-    
+
                     # If object was placed, compute step it was placed at
                     if placed==1:
                         raw_order.append(np.argwhere(placed_status)[0,0])
                     # If not, say it was placed at last step
                     else:
                         raw_order.append(placed_status.shape[0])
-    
+
                 # Compute *relative* order objects were placed in
                 ordering=np.argsort(np.array(raw_order))
                 ranks=np.empty_like(ordering)
@@ -707,7 +710,7 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
                     rankings_dict[cmd][identity[0]][identity[1]].append(order)
                 u=0
                 not_moved_any_dict[cmd].append(any_moved)
-    
+
         means_dict={}
         for cmd in not_moved_any_dict:
             mean=np.mean(np.array(not_moved_any_dict[cmd]))
@@ -716,7 +719,7 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
         df_not_moved_any_dict.to_csv(os.path.join(save_path, "moved_any_object_by_command.csv"))
         # Tuple of dicts with numerical values for each identity
         dicts=(rankings_dict, placed_dict, moved_dict, not_moved_dict)
-    
+
         for cmd in placed_dict:
             for e in placed_dict[cmd]:
                 for g in placed_dict[cmd][e]:
@@ -728,7 +731,6 @@ def get_stats_for_run(runs_file, cmd_subsets, subset_names):
         dicts=pickle.load(open(cached_analysis_path, "rb"))
     # Names of each metric
     metric_names=("order object placed", "object placed", "object moved", "object not moved")
-    
 
     #dicts=(placed_dict,)
     #metric_names=("object placed",)
@@ -892,7 +894,7 @@ if __name__ == '__main__':
     #parser.add_option("--runs_file", dest="runs_file", default="/Users/athundt/Downloads/2022-01-20-pairwise-checkpoints-cfd/checkpoints")
     #parser.add_option("--runs_file", dest="runs_file", default="/Users/athundt/Downloads/checkpoints_test_cfd-67-strings-2022-01-21-pairwise/checkpoints")
     # parser.add_option("--runs_file", dest="runs_file", default="/home/willie/github/cliport/cliport_quickstart/packing-unseen-google-objects-race-seq-cliport-n1000-train/hyak_checkpoints/checkpoints/")
-    #parser.add_option("--runs_file", dest="runs_file", default="/Users/athundt/Downloads/checkpoints_test_cfd-67-strings-2022-01-21-pairwise/checkpoints")
+    # parser.add_option("--runs_file", dest="runs_file", default="/Users/athundt/Downloads/checkpoints_test_cfd-67-strings-2022-01-21-pairwise/checkpoints")
     parser.add_option("--runs_file", dest="runs_file", default="../cliport_quickstart/pairwise-paper-runs_03_27_2022/")
 
     options, args = parser.parse_args()
