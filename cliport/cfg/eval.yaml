@@ -18,7 +18,7 @@ command_string_max: 59
 
 # eval settings
 agent: cliport
-n_demos: 1000 # number of val instances
+n_demos: 2500 # number of val instances
 train_demos: 1000 # training demos used to train model
 n_repeats: 1 # number of repeats
 gpu: [0]
@@ -31,7 +31,7 @@ target_item_desc: 'block'
 folds: 0 # to run multi-process, split up the command strings into this many folds, 0 means run all cases, 4 means four separate fold runs
 fold: 0 # to run multi-process, this run should cover this fold, if there are 4 fold runs the fold values for each process will be 0, 1, 2, 3.
 
-disp: True
+disp: False
 shared_memory: False
 eval_task: packing-unseen-google-objects-race-seq-pairwise # task to evaluate the model on
 model_task: multi-language-conditioned # task the model was trained on (e.g. multi-language-conditioned or packing-boxes-pairs-seen-colors)
