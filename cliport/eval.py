@@ -258,7 +258,7 @@ def call_main(vcfg):
                                 break
     
                         
-                        if i%250==0:
+                        if i%50==0:
                             df = pd.DataFrame(data=object_infos)
                             df.to_csv(csv_path)
                             pickle.dump((object_infos, cmd_reward), open(pickle_path, "wb"))
