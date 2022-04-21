@@ -84,6 +84,7 @@ def build_command_strings(subset='all', entity_list=None):
     # commands = ['pack the ' + description + ' in the brown box' for description in XYZ]
     Y = np.array(entity_list)  # , 'cube' , 'picture'
     XY = combine_lists(X, Y)
+    XY.append('person block')
     XY = np.unique(XY)
     commands = ['pack the ' + description + ' in the brown box' for description in XY]
 
