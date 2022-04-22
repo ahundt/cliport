@@ -273,15 +273,15 @@ def call_main(vcfg):
                         
                         print("cumulative reward: "+str(cmd_reward), flush=True)
                         # Break after certain # WM places
-                        if cmd_reward>=500:# and vcfg['identity_group_num_0']==0:
-                            print("cumulative reward exceeded, cumulative reward: "+str(cmd_reward), flush=True)
-#                             pickle.dump(i, open(num_runs_save_path, "wb"))
-                            
-                            df = pd.DataFrame(data=object_infos)
-                            df.to_csv(csv_path)
-                            pickle.dump((object_infos, cmd_reward), open(pickle_path, "wb"))
-                            
-                            break
+#                         if cmd_reward>=500:# and vcfg['identity_group_num_0']==0:
+#                             print("cumulative reward exceeded, cumulative reward: "+str(cmd_reward), flush=True)
+# #                             pickle.dump(i, open(num_runs_save_path, "wb"))
+#
+#                             df = pd.DataFrame(data=object_infos)
+#                             df.to_csv(csv_path)
+#                             pickle.dump((object_infos, cmd_reward), open(pickle_path, "wb"))
+#
+#                             break
                     except Exception as e:
                         logging.error(traceback.format_exc())
                         
