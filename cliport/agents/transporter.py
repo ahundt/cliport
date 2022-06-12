@@ -339,7 +339,7 @@ class TransporterAgent(LightningModule):
         return self.test_ds
 
     def load(self, model_path):
-        self.load_state_dict(torch.load(model_path)['state_dict'])
+        self.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'))['state_dict'])
         self.to(device=self.device_type)
 
 

@@ -38,10 +38,10 @@ class Task():
 
         self.goals = []
         self.lang_goals = []
+        self.command_strings = []
         self.task_completed_desc = "task completed."
         self.progress = 0
         self._rewards = 0
-
 
         self.assets_root = None
 
@@ -173,6 +173,8 @@ class Task():
             `extras` for further data analysis.
         """
         reward, info = 0, {}
+        info["pose"]={}
+        info["placed"]={}
 
         # Unpack next goal step.
         objs, matches, targs, _, _, metric, params, max_reward = self.goals[0]
@@ -183,12 +185,16 @@ class Task():
             for i in range(len(objs)):
                 object_id, (symmetry, _) = objs[i]
                 pose = p.getBasePositionAndOrientation(object_id)
+                info["pose"][object_id]=pose
+                info["placed"][object_id]=0
                 targets_i = np.argwhere(matches[i, :]).reshape(-1)
                 for j in targets_i:
                     target_pose = targs[j]
                     if self.is_match(pose, target_pose, symmetry):
+                        info["placed"][object_id]=1
                         step_reward += max_reward / len(objs)
-                        break
+                        #Hack to make placed objects dissapear so robot doesn't grab same object over and over
+                        p.resetBasePositionAndOrientation(object_id, [5+i*0.1, 5+i*0.1, 0.05], [0,0,0,1])
 
         # Evaluate by measuring object intersection with zone.
         elif metric == 'zone':
@@ -381,10 +387,12 @@ class Task():
 
     def set_assets_root(self, assets_root):
         self.assets_root = assets_root
-    
+
     def add_cube(self, env, cube_texture_file_path=None):
             if cube_texture_file_path is None:
                 cube_texture_file = os.path.join(pybullet_data.getDataPath(), "cube.png")
+            else:
+                cube_texture_file = os.path.join(cube_texture_file_path)
             # TODO enable specification of a png to load for the sides of the cube
             cube_urdf = os.path.join(pybullet_data.getDataPath(), "cube_small.urdf")
             cube_size = (.05, .05, .05) # TODO HACK get size from urdf, not hardcoded

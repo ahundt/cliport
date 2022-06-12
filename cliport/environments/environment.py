@@ -11,8 +11,10 @@ import numpy as np
 from cliport.tasks import cameras
 from cliport.utils import pybullet_utils
 from cliport.utils import utils
+import random
 
-import pybullet as p
+import pybullet
+from pybullet_utils import bullet_client as bc
 
 PLACE_STEP = 0.0003
 PLACE_DELTA_THRESHOLD = 0.005
@@ -52,6 +54,8 @@ class Environment(gym.Env):
         self.record_cfg = record_cfg
         self.save_video = False
         self.step_counter = 0
+        self.run_log={}
+        self.p=None
 
         self.assets_root = assets_root
 
@@ -84,32 +88,37 @@ class Environment(gym.Env):
         })
 
         # Start PyBullet.
-        disp_option = p.DIRECT
         if disp:
-            disp_option = p.GUI
+            self.p=bc.BulletClient(connection_mode=pybullet.GUI)
+        else:
+            self.p=bc.BulletClient(connection_mode=pybullet.DIRECT)
+        disp_option = pybullet.DIRECT
+        if disp:
+            disp_option = pybullet.GUI
             if shared_memory:
-                disp_option = p.SHARED_MEMORY
-        client = p.connect(disp_option)
-        file_io = p.loadPlugin('fileIOPlugin', physicsClientId=client)
-        if file_io < 0:
-            raise RuntimeError('pybullet: cannot load FileIO!')
-        if file_io >= 0:
-            p.executePluginCommand(
-                file_io,
-                textArgument=assets_root,
-                intArgs=[p.AddFileIOAction],
-                physicsClientId=client)
+                disp_option = pybullet.SHARED_MEMORY
+        
+#         client = self.p.connect(disp_option)
+#         file_io = self.p.loadPlugin('fileIOPlugin', physicsClientId=client)
+#         if file_io < 0:
+#             raise RuntimeError('pybullet: cannot load FileIO!')
+#         if file_io >= 0:
+#             self.p.executePluginCommand(
+#                 file_io,
+#                 textArgument=assets_root,
+#                 intArgs=[p.AddFileIOAction],
+#                 physicsClientId=client)
 
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-        p.setPhysicsEngineParameter(enableFileCaching=0)
-        p.setAdditionalSearchPath(assets_root)
-        p.setAdditionalSearchPath(tempfile.gettempdir())
-        p.setTimeStep(1. / hz)
+#         self.p.configureDebugVisualizer(bc.COV_ENABLE_GUI, 0)
+        self.p.setPhysicsEngineParameter(enableFileCaching=0)
+        self.p.setAdditionalSearchPath(assets_root)
+        self.p.setAdditionalSearchPath(tempfile.gettempdir())
+        self.p.setTimeStep(1. / hz)
 
         # If using --disp, move default camera closer to the scene.
         if disp:
-            target = p.getDebugVisualizerCamera()[11]
-            p.resetDebugVisualizerCamera(
+            target = self.p.getDebugVisualizerCamera()[11]
+            self.p.resetDebugVisualizerCamera(
                 cameraDistance=1.1,
                 cameraYaw=90,
                 cameraPitch=-25,
@@ -125,7 +134,7 @@ class Environment(gym.Env):
     @property
     def is_static(self):
         """Return true if objects are no longer moving."""
-        v = [np.linalg.norm(p.getBaseVelocity(i)[0])
+        v = [np.linalg.norm(self.p.getBaseVelocity(i)[0])
              for i in self.obj_ids['rigid']]
         return all(np.array(v) < 5e-3)
 
@@ -133,7 +142,7 @@ class Environment(gym.Env):
         """List of (fixed, rigid, or deformable) objects in env."""
         fixed_base = 1 if category == 'fixed' else 0
         obj_id = pybullet_utils.load_urdf(
-            p,
+            self.p,
             os.path.join(self.assets_root, urdf),
             pose[0],
             pose[1],
@@ -150,47 +159,48 @@ class Environment(gym.Env):
         self._random = np.random.RandomState(seed)
         return seed
 
-    def reset(self):
+    def reset(self, task_reset=True):
         """Performs common reset functionality for all supported tasks."""
         if not self.task:
             raise ValueError('environment task must be set. Call set_task or pass '
                              'the task arg in the environment constructor.')
         self.obj_ids = {'fixed': [], 'rigid': [], 'deformable': []}
-        p.resetSimulation(p.RESET_USE_DEFORMABLE_WORLD)
-        p.setGravity(0, 0, -9.8)
+        self.p.resetSimulation()
+        self.p.setGravity(0, 0, -9.8)
 
         # Temporarily disable rendering to load scene faster.
-        p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
+#         self.p.configureDebugVisualizer(bc.COV_ENABLE_RENDERING, 0)
 
-        pybullet_utils.load_urdf(p, os.path.join(self.assets_root, PLANE_URDF_PATH),
+        pybullet_utils.load_urdf(self.p, os.path.join(self.assets_root, PLANE_URDF_PATH),
                                  [0, 0, -0.001])
         pybullet_utils.load_urdf(
-            p, os.path.join(self.assets_root, UR5_WORKSPACE_URDF_PATH), [0.5, 0, 0])
+            self.p, os.path.join(self.assets_root, UR5_WORKSPACE_URDF_PATH), [0.5, 0, 0])
 
         # Load UR5 robot arm equipped with suction end effector.
         # TODO(andyzeng): add back parallel-jaw grippers.
         self.ur5 = pybullet_utils.load_urdf(
-            p, os.path.join(self.assets_root, UR5_URDF_PATH))
+            self.p, os.path.join(self.assets_root, UR5_URDF_PATH))
         self.ee = self.task.ee(self.assets_root, self.ur5, 9, self.obj_ids)
         self.ee_tip = 10  # Link ID of suction cup.
 
         # Get revolute joint indices of robot (skip fixed joints).
-        n_joints = p.getNumJoints(self.ur5)
-        joints = [p.getJointInfo(self.ur5, i) for i in range(n_joints)]
-        self.joints = [j[0] for j in joints if j[2] == p.JOINT_REVOLUTE]
+        n_joints = self.p.getNumJoints(self.ur5)
+        joints = [self.p.getJointInfo(self.ur5, i) for i in range(n_joints)]
+        self.joints = [j[0] for j in joints if j[2] == self.p.JOINT_REVOLUTE]
 
         # Move robot to home joint configuration.
         for i in range(len(self.joints)):
-            p.resetJointState(self.ur5, self.joints[i], self.homej[i])
+            self.p.resetJointState(self.ur5, self.joints[i], self.homej[i])
 
         # Reset end effector.
         self.ee.release()
 
         # Reset task.
-        self.task.reset(self)
+        if task_reset:
+            self.task.reset(self)
 
         # Re-enable rendering.
-        p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
+#         self.p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
 
         obs, _, _, _ = self.step()
         return obs
@@ -210,6 +220,7 @@ class Environment(gym.Env):
             # Exit early if action times out. We still return an observation
             # so that we don't break the Gym API contract.
             if timeout:
+                print("action timed out!")
                 obs = {'color': (), 'depth': ()}
                 for config in self.agent_cams:
                     color, depth, _ = self.render_camera(config)
@@ -230,10 +241,13 @@ class Environment(gym.Env):
 
         obs = self._get_obs()
 
+#         if not "pose" in info:
+#             print("env pose not in info")
+
         return obs, reward, done, info
 
     def step_simulation(self):
-        p.stepSimulation()
+        self.p.stepSimulation()
         self.step_counter += 1
 
         if self.save_video and self.step_counter % 5 == 0:
@@ -255,30 +269,30 @@ class Environment(gym.Env):
         # OpenGL camera settings.
         lookdir = np.float32([0, 0, 1]).reshape(3, 1)
         updir = np.float32([0, -1, 0]).reshape(3, 1)
-        rotation = p.getMatrixFromQuaternion(config['rotation'])
+        rotation = self.p.getMatrixFromQuaternion(config['rotation'])
         rotm = np.float32(rotation).reshape(3, 3)
         lookdir = (rotm @ lookdir).reshape(-1)
         updir = (rotm @ updir).reshape(-1)
         lookat = config['position'] + lookdir
         focal_len = config['intrinsics'][0]
         znear, zfar = config['zrange']
-        viewm = p.computeViewMatrix(config['position'], lookat, updir)
+        viewm = self.p.computeViewMatrix(config['position'], lookat, updir)
         fovh = (image_size[0] / 2) / focal_len
         fovh = 180 * np.arctan(fovh) * 2 / np.pi
 
         # Notes: 1) FOV is vertical FOV 2) aspect must be float
         aspect_ratio = image_size[1] / image_size[0]
-        projm = p.computeProjectionMatrixFOV(fovh, aspect_ratio, znear, zfar)
+        projm = self.p.computeProjectionMatrixFOV(fovh, aspect_ratio, znear, zfar)
 
         # Render with OpenGL camera settings.
-        _, _, color, depth, segm = p.getCameraImage(
+        _, _, color, depth, segm = self.p.getCameraImage(
             width=image_size[1],
             height=image_size[0],
             viewMatrix=viewm,
             projectionMatrix=projm,
             shadow=shadow,
-            flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
-            renderer=p.ER_BULLET_HARDWARE_OPENGL)
+            flags=pybullet.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
+            renderer=pybullet.ER_BULLET_HARDWARE_OPENGL)
 
         # Get color image.
         color_image_size = (image_size[0], image_size[1], 4)
@@ -315,8 +329,8 @@ class Environment(gym.Env):
         info = {}  # object id : (position, rotation, dimensions)
         for obj_ids in self.obj_ids.values():
             for obj_id in obj_ids:
-                pos, rot = p.getBasePositionAndOrientation(obj_id)
-                dim = p.getVisualShapeData(obj_id)[0][3]
+                pos, rot = self.p.getBasePositionAndOrientation(obj_id)
+                dim = self.p.getVisualShapeData(obj_id)[0][3]
                 info[obj_id] = (pos, rot, dim)
 
         info['lang_goal'] = self.get_lang_goal()
@@ -343,7 +357,7 @@ class Environment(gym.Env):
 
         t0 = time.time()
         while (time.time() - t0) < timeout:
-            currj = [p.getJointState(self.ur5, i)[0] for i in self.joints]
+            currj = [self.p.getJointState(self.ur5, i)[0] for i in self.joints]
             currj = np.array(currj)
             diffj = targj - currj
             if all(np.abs(diffj) < 1e-2):
@@ -354,10 +368,10 @@ class Environment(gym.Env):
             v = diffj / norm if norm > 0 else 0
             stepj = currj + v * speed
             gains = np.ones(len(self.joints))
-            p.setJointMotorControlArray(
+            self.p.setJointMotorControlArray(
                 bodyIndex=self.ur5,
                 jointIndices=self.joints,
-                controlMode=p.POSITION_CONTROL,
+                controlMode=pybullet.POSITION_CONTROL,
                 targetPositions=stepj,
                 positionGains=gains)
             self.step_counter += 1
@@ -383,14 +397,14 @@ class Environment(gym.Env):
                                                fps=self.record_cfg['fps'],
                                                format='FFMPEG',
                                                codec='h264',)
-        p.setRealTimeSimulation(False)
+        self.p.setRealTimeSimulation(False)
         self.save_video = True
 
     def end_rec(self):
         if hasattr(self, 'video_writer'):
             self.video_writer.close()
 
-        p.setRealTimeSimulation(True)
+        self.p.setRealTimeSimulation(True)
         self.save_video = False
 
     def add_video_frame(self):
@@ -440,7 +454,7 @@ class Environment(gym.Env):
 
     def solve_ik(self, pose):
         """Calculate joint configuration with inverse kinematics."""
-        joints = p.calculateInverseKinematics(
+        joints = self.p.calculateInverseKinematics(
             bodyUniqueId=self.ur5,
             endEffectorLinkIndex=self.ee_tip,
             targetPosition=pose[0],
